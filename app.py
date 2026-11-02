@@ -101,8 +101,8 @@ def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner,
         }}
         
         .header-seal-icon {{
-            height: 54px;
-            width: 54px;
+            height: 58px;
+            width: 58px;
             filter: drop-shadow(0 2px 5px rgba(0,0,0,0.25));
         }}
         
@@ -321,10 +321,11 @@ st.divider()
 st.subheader("📺 Live Election Video Feeds & Network Broadcasts")
 
 NETWORK_CHANNELS = {
-    "ABC News": "UCBi2mrWuNuyYy4gbM6fU18Q",
-    "NBC News": "UCeY0bbntWzzVIaj2z3QigXg",
     "CBS News": "UC8p1vwvWtl6T73JiExfWs1g",
-    "PBS NewsHour": "UC6ZFN9Tx6xh-skXCuRHCDpQ"
+    "PBS NewsHour": "UC6ZFN9Tx6xh-skXCuRHCDpQ",
+    "ABC News": "UCBi2mrWuNuyYy4gbM6fU18Q",
+    "NBC News": "UCeY0bbntWzzVIaj2z3QigXg"
+
 }
 
 v_col1, v_col2 = st.columns(2)
