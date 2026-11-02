@@ -45,46 +45,42 @@ def fetch_live_news():
         })
     return articles
 
-# --- DYNAMIC BACKGROUND & VICTORY BANNER ENGINE ---
+# --- STRONGER DYNAMIC BACKGROUND & VICTORY BANNER ENGINE ---
 def compute_tinted_background(dem_prob: float) -> str:
     """
-    Blends a warm beige/off-white base (#FAF7F0) with Democratic Blue or Republican Red
-    proportionally to the combined win probability (0 to 100).
+    Blends a warm base with a much stronger, highly visible Democratic Blue 
+    or Republican Red tint based on win probability.
     """
-    base_r, base_g, base_b = 250, 247, 240  # Warm Beige / Off-White base
+    base_r, base_g, base_b = 250, 247, 240  # Warm Beige base
     
     if dem_prob >= 50:
-        # Scale from 0.0 (at 50%) to 1.0 (at 100%)
         intensity = (dem_prob - 50) / 50.0
-        # Target soft Dem Blue tint: RGB(205, 226, 252)
-        r = int(base_r - intensity * (base_r - 205))
-        g = int(base_g - intensity * (base_g - 226))
-        b = int(base_b - intensity * (base_b - 252))
+        # Target vibrant Dem Blue tint: RGB(145, 191, 249)
+        r = int(base_r - intensity * (base_r - 145))
+        g = int(base_g - intensity * (base_g - 191))
+        b = int(base_b - intensity * (base_b - 249))
     else:
-        # Scale from 0.0 (at 50%) to 1.0 (at 0% Dem / 100% GOP)
         intensity = (50 - dem_prob) / 50.0
-        # Target soft GOP Red tint: RGB(252, 210, 210)
+        # Target vibrant GOP Red tint: RGB(252, 164, 164)
         r = int(base_r - intensity * (base_r - 252))
-        g = int(base_g - intensity * (base_g - 210))
-        b = int(base_b - intensity * (base_b - 210))
+        g = int(base_g - intensity * (base_g - 164))
+        b = int(base_b - intensity * (base_b - 164))
         
     return f"#{r:02x}{g:02x}{b:02x}"
 
 def apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
-    """Injects dynamic CSS for background tinting and renders flashing US Flag/Seal banners."""
+    """Injects dynamic CSS for strong background tinting and victory banners."""
     avg_dem_prob = (house_dem_prob + senate_dem_prob) / 2.0
     bg_hex = compute_tinted_background(avg_dem_prob)
 
     st.markdown(
         f"""
         <style>
-        /* Dynamic Beige + Party Probability Tinted Background */
         .stApp {{
-            background: radial-gradient(circle at top, #FFFDF9 0%, {bg_hex} 100%) !important;
+            background: radial-gradient(circle at top, #FFFFFF 0%, {bg_hex} 100%) !important;
             transition: background 0.8s ease-in-out;
         }}
         
-        /* Flashing Victory Animation */
         @keyframes flash-banner {{
             0%, 100% {{ opacity: 1; transform: scale(1); text-shadow: 0 0 18px rgba(255,255,255,0.9); }}
             50% {{ opacity: 0.35; transform: scale(0.98); text-shadow: none; }}
@@ -139,7 +135,6 @@ def apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winne
         unsafe_allow_html=True
     )
 
-    # Render Confirmed Winner Banners at the very top of the page
     flag_url = "https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
     seal_url = "https://upload.wikimedia.org/wikipedia/commons/5/5c/Great_Seal_of_the_United_States_%28obverse%29.svg"
 
@@ -169,72 +164,33 @@ def apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winne
             unsafe_allow_html=True
         )
 
-# --- SIDEBAR: SIMULATION & OVERRIDE CONTROLS ---
-with st.sidebar:
-    st.header("⚙️ Display & Simulation Controls")
-    st.caption("Use live market feeds or simulate probabilities to test the background tint and victory banners.")
-    mode = st.radio("Data Mode:", ["🔴 Live API Feeds", "🧪 Test / Simulate Results"])
-    
-    sim_house_dem = 94.0
-    sim_senate_dem = 72.0
-    force_house_win = "Auto (99%+ Threshold)"
-    force_senate_win = "Auto (99%+ Threshold)"
-    
-    if mode == "🧪 Test / Simulate Results":
-        sim_house_dem = st.slider("House Democratic Win %", 0.0, 100.0, 94.0, 0.5)
-        sim_senate_dem = st.slider("Senate Democratic Win %", 0.0, 100.0, 72.0, 0.5)
-        force_house_win = st.selectbox("Confirm House Winner Banner:", ["Auto (99%+ Threshold)", "DEMOCRATS", "REPUBLICANS", "None"])
-        force_senate_win = st.selectbox("Confirm Senate Winner Banner:", ["Auto (99%+ Threshold)", "DEMOCRATS", "REPUBLICANS", "None"])
-
 # --- AUTO-REFRESHING DASHBOARD FRAGMENT ---
 @st.fragment(run_every="30s")
 def render_live_dashboard():
-    # 1. Fetch live Kalshi probabilities (Fallback to latest Nov 2026 consensus)
     house_dem_data = fetch_kalshi_market("CONTROLH-2026-D")
     senate_dem_data = fetch_kalshi_market("CONTROLS-2026-D")
 
-    if mode == "🔴 Live API Feeds":
-        house_dem_prob = float(house_dem_data["last_price"]) if (house_dem_data and house_dem_data.get("last_price")) else 94.0
-        senate_dem_prob = float(senate_dem_data["last_price"]) if (senate_dem_data and senate_dem_data.get("last_price")) else 72.0
-    else:
-        house_dem_prob = sim_house_dem
-        senate_dem_prob = sim_senate_dem
+    house_dem_prob = float(house_dem_data["last_price"]) if (house_dem_data and house_dem_data.get("last_price")) else 94.0
+    senate_dem_prob = float(senate_dem_data["last_price"]) if (senate_dem_data and senate_dem_data.get("last_price")) else 72.0
 
     house_gop_prob = round(100.0 - house_dem_prob, 1)
     senate_gop_prob = round(100.0 - senate_dem_prob, 1)
 
-    # Determine confirmed winners (99%+ market lock or manual simulation trigger)
-    house_winner = None
-    if force_house_win in ["DEMOCRATS", "REPUBLICANS"]:
-        house_winner = force_house_win
-    elif force_house_win == "Auto (99%+ Threshold)":
-        if house_dem_prob >= 99.0:
-            house_winner = "DEMOCRATS"
-        elif house_gop_prob >= 99.0:
-            house_winner = "REPUBLICANS"
+    house_winner = "DEMOCRATS" if house_dem_prob >= 99.0 else ("REPUBLICANS" if house_gop_prob >= 99.0 else None)
+    senate_winner = "DEMOCRATS" if senate_dem_prob >= 99.0 else ("REPUBLICANS" if senate_gop_prob >= 99.0 else None)
 
-    senate_winner = None
-    if force_senate_win in ["DEMOCRATS", "REPUBLICANS"]:
-        senate_winner = force_senate_win
-    elif force_senate_win == "Auto (99%+ Threshold)":
-        if senate_dem_prob >= 99.0:
-            senate_winner = "DEMOCRATS"
-        elif senate_gop_prob >= 99.0:
-            senate_winner = "REPUBLICANS"
-
-    # Apply the dynamic background tint and top victory banners
     apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner)
 
     # --- HEADER ---
     st.title("🗳️ 2026 U.S. Midterm Elections: Real-Time Dashboard")
     
     avg_dem = round((house_dem_prob + senate_dem_prob) / 2, 1)
-    tint_label = f"Blue Tint ({avg_dem}% Dem Tilt)" if avg_dem > 50 else (f"Red Tint ({round(100-avg_dem, 1)}% GOP Tilt)" if avg_dem < 50 else "Neutral Beige (50/50 Toss-up)")
+    tint_label = f"Strong Blue Tint ({avg_dem}% Dem Tilt)" if avg_dem > 50 else (f"Strong Red Tint ({round(100-avg_dem, 1)}% GOP Tilt)" if avg_dem < 50 else "Neutral Beige")
     
     last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     col_status, col_btn = st.columns([4, 1])
     with col_status:
-        st.info(f"⚡ **Live Feed Active** | Page Atmosphere: **{tint_label}** | Last synced: `{last_updated}`")
+        st.info(f"⚡ **Live API Feed Active** | Page Atmosphere: **{tint_label}** | Last synced: `{last_updated}`")
     with col_btn:
         if st.button("🔄 Force Refresh", use_container_width=True):
             st.cache_data.clear()
