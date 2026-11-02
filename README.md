@@ -1,4 +1,4 @@
-# 🗳️ # <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Great_Seal_of_the_United_States_%28obverse%29.svg" width="38" valign="middle" /> 2026 U.S. Midterm Elections: Real-Time Live Tracker 2026 U.S. Midterm Elections: Real-Time Live Tracker
+# 🗳️ <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Great_Seal_of_the_United_States_%28obverse%29.svg" width="38" valign="middle" /> 2026 U.S. Midterm Elections: Real-Time Live Tracker 2026 U.S. Midterm Elections: Real-Time Live Tracker
 
 A high-vibrancy, real-time analytics and tracking dashboard built with **Streamlit**, **Plotly**, and **Python** for the **2026 U.S. Midterm Elections**. Features live prediction market integration, a dynamic split-screen party tinting engine, Senate battleground watchlists, and live RSS news feeds.
 
