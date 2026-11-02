@@ -39,18 +39,22 @@ def fetch_live_midterm_news():
     rss_url = "https://news.google.com/rss/search?q=US+Midterm+Elections+2026+Senate+House+Congress&hl=en-US&gl=US&ceid=US:en"
     feed = feedparser.parse(rss_url)
     articles = []
+    
+    # Keywords required to guarantee relevance to the midterms
     required_keywords = ["midterm", "senate", "house", "congress", "election", "ballot", "poll"]
     
     for entry in feed.entries:
         title_lower = entry.title.lower()
+        # Ensure the headline is strictly relevant to the midterms
         if any(keyword in title_lower for keyword in required_keywords):
             articles.append({
                 "title": entry.title,
                 "link": entry.link,
                 "published": entry.published
             })
-        if len(articles) >= 6:
+        if len(articles) >= 6:  # Keep top 6 most relevant live updates
             break
+            
     return articles
 
 @st.cache_data(ttl=120)
@@ -67,36 +71,26 @@ def fetch_network_video_feeds(channel_id: str):
         })
     return videos
 
-# --- FLAG-INSPIRED DYNAMIC BACKGROUND & VICTORY BANNER ENGINE ---
-def apply_flag_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
+# --- HIGH-VIBRANCY SPLIT-SCREEN TINT ENGINE ---
+def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
     avg_dem_prob = (house_dem_prob + senate_dem_prob) / 2.0
     avg_gop_prob = 100.0 - avg_dem_prob
     
-    # Scale opacities dynamically based on live party probabilities
-    dem_alpha = round(0.15 + (avg_dem_prob / 100.0 * 0.45), 2)
-    gop_alpha = round(0.15 + (avg_gop_prob / 100.0 * 0.45), 2)
+    dem_intensity = round(0.12 + (avg_dem_prob / 100.0 * 0.53), 2)
+    gop_intensity = round(0.12 + (avg_gop_prob / 100.0 * 0.53), 2)
 
     st.markdown(
         f"""
         <style>
         .stApp {{
-            background: 
-                /* Upper Left Starry Blue Canton Simulation */
-                radial-gradient(circle at 12% 15%, rgba(255,255,255,0.4) 2px, transparent 3px),
-                radial-gradient(circle at 22% 25%, rgba(255,255,255,0.4) 2px, transparent 3px),
-                radial-gradient(circle at 8% 35%, rgba(255,255,255,0.4) 2px, transparent 3px),
-                linear-gradient(135deg, rgba(10, 34, 70, {dem_alpha}) 0%, rgba(10, 34, 70, {dem_alpha}) 45%, transparent 46%),
-                /* Right Republican Half with Alternating Stripe Tint Simulation */
-                repeating-linear-gradient(180deg, 
-                    rgba(168, 28, 28, {gop_alpha}) 0px, 
-                    rgba(168, 28, 28, {gop_alpha}) 35px, 
-                    rgba(255, 255, 255, {gop_alpha}) 35px, 
-                    rgba(255, 255, 255, {gop_alpha}) 70px
-                ),
-                #FAF7F0 !important;
-            background-size: 100px 100px, 120px 120px, 90px 90px, 100% 100%, 100% 100%, 100% 100%;
-            background-attachment: fixed;
+            background: linear-gradient(135deg, 
+                rgba(13, 95, 170, {dem_intensity}) 0%, 
+                #F7F4EB 42%, 
+                #F7F4EB 58%, 
+                rgba(215, 38, 38, {gop_intensity}) 100%
+            ) !important;
             transition: background 0.8s ease-in-out;
+            background-attachment: fixed;
         }}
         
         .header-title-bar {{
@@ -212,7 +206,7 @@ st.markdown(
 )
 
 # --- SILENT 30-SECOND AUTO-REFRESHING DATA FRAGMENT ---
-@st.fragment(run_every="30s")
+@st.fragment(run_every="10s")
 def render_live_data():
     house_dem_data = fetch_kalshi_market("CONTROLH-2026-D")
     senate_dem_data = fetch_kalshi_market("CONTROLS-2026-D")
@@ -226,7 +220,7 @@ def render_live_data():
     house_winner = "DEMOCRATS" if house_dem_prob >= 99.0 else ("REPUBLICANS" if house_gop_prob >= 99.0 else None)
     senate_winner = "DEMOCRATS" if senate_dem_prob >= 99.0 else ("REPUBLICANS" if senate_gop_prob >= 99.0 else None)
 
-    apply_flag_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner)
+    apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner)
 
     # --- TOP METRICS ROW ---
     st.subheader("📊 Live Balance of Power Odds & Polling Consensus")
@@ -331,6 +325,7 @@ NETWORK_CHANNELS = {
     "PBS NewsHour": "UC6ZFN9Tx6xh-skXCuRHCDpQ",
     "ABC News": "UCBi2mrWuNuyYy4gbM6fU18Q",
     "NBC News": "UCeY0bbntWzzVIaj2z3QigXg"
+
 }
 
 v_col1, v_col2 = st.columns(2)
