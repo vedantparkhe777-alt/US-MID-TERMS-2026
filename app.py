@@ -45,28 +45,28 @@ def fetch_live_news():
         })
     return articles
 
-# --- SPLIT-SCREEN INTENSITY TINT ENGINE ---
+# --- HIGH-VIBRANCY SPLIT-SCREEN TINT ENGINE ---
 def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
     """
-    Creates a half-blue (left) and half-red (right) split background 
-    where opacities/intensities scale dynamically with each party's probability.
+    Creates a high-vibrancy half-blue (left) and half-red (right) split background 
+    where color opacities scale aggressively with each party's live probability.
     """
     avg_dem_prob = (house_dem_prob + senate_dem_prob) / 2.0
     avg_gop_prob = 100.0 - avg_dem_prob
     
-    # Calculate alpha/intensity values scaled from probability (0.0 to 1.0)
-    dem_intensity = round(0.05 + (avg_dem_prob / 100.0) * 0.35, 2)
-    gop_intensity = round(0.05 + (avg_gop_prob / 100.0) * 0.35, 2)
+    # Amplified alpha mapping for a much stronger visual punch (up to 65% opacity max)
+    dem_intensity = round(0.12 + (avg_dem_prob / 100.0 * 0.53), 2)
+    gop_intensity = round(0.12 + (avg_gop_prob / 100.0 * 0.53), 2)
 
     st.markdown(
         f"""
         <style>
         .stApp {{
             background: linear-gradient(135deg, 
-                rgba(31, 119, 180, {dem_intensity}) 0%, 
-                #FAF7F0 45%, 
-                #FAF7F0 55%, 
-                rgba(214, 39, 40, {gop_intensity}) 100%
+                rgba(13, 95, 170, {dem_intensity}) 0%, 
+                #F7F4EB 42%, 
+                #F7F4EB 58%, 
+                rgba(215, 38, 38, {gop_intensity}) 100%
             ) !important;
             transition: background 0.8s ease-in-out;
             background-attachment: fixed;
@@ -180,7 +180,7 @@ def render_live_dashboard():
     
     col_status, col_btn = st.columns([4, 1])
     with col_status:
-        st.info(f"⚡ **Live API Feed Active** | Split Tint Atmosphere (Blue: {avg_dem}% / Red: {round(100-avg_dem,1)}%) | Last synced: `{last_updated}`")
+        st.info(f"⚡ **Live API Feed Active** | High-Vibrancy Split Atmosphere (Blue: {avg_dem}% / Red: {round(100-avg_dem,1)}%) | Last synced: `{last_updated}`")
     with col_btn:
         if st.button("🔄 Force Refresh", use_container_width=True):
             st.cache_data.clear()
@@ -243,7 +243,6 @@ def render_live_dashboard():
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("🎯 Key 2026 Senate Battleground Watchlist")
-    
         battlegrounds = pd.DataFrame([
             {"State": "Ohio (Special)", "Matchup": "Sherrod Brown (D) vs. Jon Husted (R)", "Incumbent": "GOP", "Rating": "Toss-up", "Dem Win %": 63.5},
             {"State": "Maine", "Matchup": "Troy Jackson (D) vs. Susan Collins (R)", "Incumbent": "GOP", "Rating": "Lean D", "Dem Win %": 73.0},
