@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import feedparser
 from datetime import datetime
 
@@ -12,9 +11,6 @@ st.set_page_config(
     page_icon="🗳️",
     layout="wide"
 )
-
-st.title("🗳️ 2026 U.S. Midterm Elections: Real-Time Dashboard")
-st.caption("Live market probabilities, seat projections, and breaking election news feeds.")
 
 # --- LIVE DATA FETCHING FUNCTIONS ---
 @st.cache_data(ttl=25)
@@ -35,18 +31,6 @@ def fetch_kalshi_market(ticker: str):
         pass
     return None
 
-@st.cache_data(ttl=25)
-def fetch_polymarket_events():
-    """Queries Polymarket's Gamma API for active 2026 midterm markets."""
-    url = "https://gamma-api.polymarket.com/events?limit=10&active=true&closed=false"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            return response.json()
-    except Exception:
-        pass
-    return []
-
 @st.cache_data(ttl=60)
 def fetch_live_news():
     """Fetches real-time US Midterm news via Google News RSS."""
@@ -61,45 +45,218 @@ def fetch_live_news():
         })
     return articles
 
+# --- DYNAMIC BACKGROUND & VICTORY BANNER ENGINE ---
+def compute_tinted_background(dem_prob: float) -> str:
+    """
+    Blends a warm beige/off-white base (#FAF7F0) with Democratic Blue or Republican Red
+    proportionally to the combined win probability (0 to 100).
+    """
+    base_r, base_g, base_b = 250, 247, 240  # Warm Beige / Off-White base
+    
+    if dem_prob >= 50:
+        # Scale from 0.0 (at 50%) to 1.0 (at 100%)
+        intensity = (dem_prob - 50) / 50.0
+        # Target soft Dem Blue tint: RGB(205, 226, 252)
+        r = int(base_r - intensity * (base_r - 205))
+        g = int(base_g - intensity * (base_g - 226))
+        b = int(base_b - intensity * (base_b - 252))
+    else:
+        # Scale from 0.0 (at 50%) to 1.0 (at 0% Dem / 100% GOP)
+        intensity = (50 - dem_prob) / 50.0
+        # Target soft GOP Red tint: RGB(252, 210, 210)
+        r = int(base_r - intensity * (base_r - 252))
+        g = int(base_g - intensity * (base_g - 210))
+        b = int(base_b - intensity * (base_b - 210))
+        
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+def apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
+    """Injects dynamic CSS for background tinting and renders flashing US Flag/Seal banners."""
+    avg_dem_prob = (house_dem_prob + senate_dem_prob) / 2.0
+    bg_hex = compute_tinted_background(avg_dem_prob)
+
+    st.markdown(
+        f"""
+        <style>
+        /* Dynamic Beige + Party Probability Tinted Background */
+        .stApp {{
+            background: radial-gradient(circle at top, #FFFDF9 0%, {bg_hex} 100%) !important;
+            transition: background 0.8s ease-in-out;
+        }}
+        
+        /* Flashing Victory Animation */
+        @keyframes flash-banner {{
+            0%, 100% {{ opacity: 1; transform: scale(1); text-shadow: 0 0 18px rgba(255,255,255,0.9); }}
+            50% {{ opacity: 0.35; transform: scale(0.98); text-shadow: none; }}
+        }}
+        
+        .victory-container {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 28px;
+            border-radius: 14px;
+            margin-bottom: 18px;
+            color: #ffffff;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+            border: 3px solid #FFD700;
+        }}
+        
+        .dem-victory {{
+            background: linear-gradient(90deg, #0a2246 0%, #155293 50%, #0a2246 100%);
+        }}
+        
+        .gop-victory {{
+            background: linear-gradient(90deg, #4a0e0e 0%, #a81c1c 50%, #4a0e0e 100%);
+        }}
+        
+        .flashing-winner-text {{
+            font-size: 2.1rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-align: center;
+            animation: flash-banner 1.15s infinite ease-in-out;
+            margin: 0;
+        }}
+        
+        .victory-subtext {{
+            font-size: 0.95rem;
+            text-align: center;
+            color: #f3e5ab;
+            margin-top: 4px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }}
+        
+        .emblem-img {{
+            height: 74px;
+            width: auto;
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Render Confirmed Winner Banners at the very top of the page
+    flag_url = "https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
+    seal_url = "https://upload.wikimedia.org/wikipedia/commons/5/5c/Great_Seal_of_the_United_States_%28obverse%29.svg"
+
+    banners_to_render = []
+    if house_winner == "DEMOCRATS":
+        banners_to_render.append(("DEMOCRATS HAVE WON THE HOUSE", "dem-victory", "PROJECTED MAJORITY — 218+ SEATS CONFIRMED"))
+    elif house_winner == "REPUBLICANS":
+        banners_to_render.append(("REPUBLICANS HAVE WON THE HOUSE", "gop-victory", "PROJECTED MAJORITY — 218+ SEATS CONFIRMED"))
+
+    if senate_winner == "DEMOCRATS":
+        banners_to_render.append(("DEMOCRATS HAVE WON THE SENATE", "dem-victory", "PROJECTED MAJORITY — 51+ SEATS CONFIRMED"))
+    elif senate_winner == "REPUBLICANS":
+        banners_to_render.append(("REPUBLICANS HAVE WON THE SENATE", "gop-victory", "PROJECTED MAJORITY — 50+ SEATS CONFIRMED"))
+
+    for headline, css_class, subtext in banners_to_render:
+        st.markdown(
+            f"""
+            <div class="victory-container {css_class}">
+                <img src="{flag_url}" class="emblem-img" alt="US Flag">
+                <div>
+                    <div class="flashing-winner-text">🇺🇸 {headline} 🇺🇸</div>
+                    <div class="victory-subtext">{subtext}</div>
+                </div>
+                <img src="{seal_url}" class="emblem-img" alt="Great Seal of the United States">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+# --- SIDEBAR: SIMULATION & OVERRIDE CONTROLS ---
+with st.sidebar:
+    st.header("⚙️ Display & Simulation Controls")
+    st.caption("Use live market feeds or simulate probabilities to test the background tint and victory banners.")
+    mode = st.radio("Data Mode:", ["🔴 Live API Feeds", "🧪 Test / Simulate Results"])
+    
+    sim_house_dem = 94.0
+    sim_senate_dem = 72.0
+    force_house_win = "Auto (99%+ Threshold)"
+    force_senate_win = "Auto (99%+ Threshold)"
+    
+    if mode == "🧪 Test / Simulate Results":
+        sim_house_dem = st.slider("House Democratic Win %", 0.0, 100.0, 94.0, 0.5)
+        sim_senate_dem = st.slider("Senate Democratic Win %", 0.0, 100.0, 72.0, 0.5)
+        force_house_win = st.selectbox("Confirm House Winner Banner:", ["Auto (99%+ Threshold)", "DEMOCRATS", "REPUBLICANS", "None"])
+        force_senate_win = st.selectbox("Confirm Senate Winner Banner:", ["Auto (99%+ Threshold)", "DEMOCRATS", "REPUBLICANS", "None"])
+
 # --- AUTO-REFRESHING DASHBOARD FRAGMENT ---
 @st.fragment(run_every="30s")
 def render_live_dashboard():
+    # 1. Fetch live Kalshi probabilities (Fallback to latest Nov 2026 consensus)
+    house_dem_data = fetch_kalshi_market("CONTROLH-2026-D")
+    senate_dem_data = fetch_kalshi_market("CONTROLS-2026-D")
+
+    if mode == "🔴 Live API Feeds":
+        house_dem_prob = float(house_dem_data["last_price"]) if (house_dem_data and house_dem_data.get("last_price")) else 94.0
+        senate_dem_prob = float(senate_dem_data["last_price"]) if (senate_dem_data and senate_dem_data.get("last_price")) else 72.0
+    else:
+        house_dem_prob = sim_house_dem
+        senate_dem_prob = sim_senate_dem
+
+    house_gop_prob = round(100.0 - house_dem_prob, 1)
+    senate_gop_prob = round(100.0 - senate_dem_prob, 1)
+
+    # Determine confirmed winners (99%+ market lock or manual simulation trigger)
+    house_winner = None
+    if force_house_win in ["DEMOCRATS", "REPUBLICANS"]:
+        house_winner = force_house_win
+    elif force_house_win == "Auto (99%+ Threshold)":
+        if house_dem_prob >= 99.0:
+            house_winner = "DEMOCRATS"
+        elif house_gop_prob >= 99.0:
+            house_winner = "REPUBLICANS"
+
+    senate_winner = None
+    if force_senate_win in ["DEMOCRATS", "REPUBLICANS"]:
+        senate_winner = force_senate_win
+    elif force_senate_win == "Auto (99%+ Threshold)":
+        if senate_dem_prob >= 99.0:
+            senate_winner = "DEMOCRATS"
+        elif senate_gop_prob >= 99.0:
+            senate_winner = "REPUBLICANS"
+
+    # Apply the dynamic background tint and top victory banners
+    apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner)
+
+    # --- HEADER ---
+    st.title("🗳️ 2026 U.S. Midterm Elections: Real-Time Dashboard")
+    
+    avg_dem = round((house_dem_prob + senate_dem_prob) / 2, 1)
+    tint_label = f"Blue Tint ({avg_dem}% Dem Tilt)" if avg_dem > 50 else (f"Red Tint ({round(100-avg_dem, 1)}% GOP Tilt)" if avg_dem < 50 else "Neutral Beige (50/50 Toss-up)")
+    
     last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     col_status, col_btn = st.columns([4, 1])
     with col_status:
-        st.info(f"⚡ **Live Feed Active** — Auto-refreshes every 30 seconds | Last synced: `{last_updated}`")
+        st.info(f"⚡ **Live Feed Active** | Page Atmosphere: **{tint_label}** | Last synced: `{last_updated}`")
     with col_btn:
         if st.button("🔄 Force Refresh", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
-
-    # 1. Fetch live Kalshi probabilities (Fallback to latest consensus if ticker settles/changes)
-    house_dem_data = fetch_kalshi_market("CONTROLH-2026-D")
-    senate_dem_data = fetch_kalshi_market("CONTROLS-2026-D")
-
-    house_dem_prob = house_dem_data["last_price"] if (house_dem_data and house_dem_data.get("last_price")) else 93.7
-    senate_dem_prob = senate_dem_data["last_price"] if (senate_dem_data and senate_dem_data.get("last_price")) else 72.0
-
-    house_gop_prob = round(100 - house_dem_prob, 1)
-    senate_gop_prob = round(100 - senate_dem_prob, 1)
 
     # --- TOP METRICS ROW ---
     st.subheader("📊 Live Balance of Power Odds & Polling Consensus")
     m1, m2, m3, m4 = st.columns(4)
     m1.metric(
         label="House Control: Democrats", 
-        value=f"{house_dem_prob}%", 
-        delta=f"GOP: {house_gop_prob}% (218 for Majority)"
+        value=f"{house_dem_prob:.1f}%", 
+        delta=f"GOP: {house_gop_prob:.1f}% (218 for Majority)"
     )
     m2.metric(
         label="Senate Control: Democrats", 
-        value=f"{senate_dem_prob}%", 
-        delta=f"GOP: {senate_gop_prob}% (51 for Majority)"
+        value=f"{senate_dem_prob:.1f}%", 
+        delta=f"GOP: {senate_gop_prob:.1f}% (51 for Majority)"
     )
     m3.metric(
         label="Generic Congressional Ballot", 
-        value="Dem +8.5%", 
-        delta="50.4% D vs. 41.4% R"
+        value="Dem +8.6%", 
+        delta="49.7% D vs. 41.1% R (Silver Bulletin)"
     )
     m4.metric(
         label="Projected House Seats (Median)", 
@@ -131,18 +288,23 @@ def render_live_dashboard():
             height=280
         )
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='inside')
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), xaxis_range=[0, 100])
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=10, b=10),
+            xaxis_range=[0, 100],
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("🎯 Key 2026 Senate Battleground Watchlist")
         battlegrounds = pd.DataFrame([
             {"State": "Ohio (Special)", "Matchup": "Sherrod Brown (D) vs. Jon Husted (R)", "Incumbent": "GOP", "Rating": "Toss-up", "Dem Win %": 63.5},
-            {"State": "Maine", "Matchup": "Susan Collins (R) vs. Dem Challenger", "Incumbent": "GOP", "Rating": "Toss-up", "Dem Win %": 54.0},
-            {"State": "North Carolina", "Matchup": "Open Seat (Tillis R-Retiring)", "Incumbent": "GOP", "Rating": "Lean D", "Dem Win %": 66.0},
-            {"State": "Michigan", "Matchup": "Abdul El-Sayed (D) vs. Mike Rogers (R)", "Incumbent": "DEM (Open)", "Rating": "Lean D", "Dem Win %": 70.5},
-            {"State": "Iowa", "Matchup": "Ashley Hinson (R) vs. Josh Turek (D)", "Incumbent": "GOP (Open)", "Rating": "Toss-up", "Dem Win %": 42.0},
-            {"State": "Alaska", "Matchup": "Dan Sullivan (R) vs. Mary Peltola (D)", "Incumbent": "GOP", "Rating": "Toss-up", "Dem Win %": 48.5},
-            {"State": "Texas", "Matchup": "James Talarico (D) vs. GOP Nominee", "Incumbent": "GOP", "Rating": "Toss-up", "Dem Win %": 63.5},
+            {"State": "Maine", "Matchup": "Troy Jackson (D) vs. Susan Collins (R)", "Incumbent": "GOP", "Rating": "Lean D", "Dem Win %": 73.0},
+            {"State": "Texas", "Matchup": "James Talarico (D) vs. Ken Paxton (R)", "Incumbent": "GOP", "Rating": "Lean D", "Dem Win %": 73.0},
+            {"State": "Michigan", "Matchup": "Abdul El-Sayed (D) vs. Mike Rogers (R)", "Incumbent": "DEM (Open)", "Rating": "Likely D", "Dem Win %": 77.0},
+            {"State": "Alaska", "Matchup": "Mary Peltola (D) vs. Dan Sullivan (R)", "Incumbent": "GOP", "Rating": "Lean D", "Dem Win %": 71.0},
+            {"State": "Kansas", "Matchup": "Adam Hamilton (D) vs. Roger Marshall (R)", "Incumbent": "GOP", "Rating": "Toss-up", "Dem Win %": 59.0},
+            {"State": "Iowa", "Matchup": "Josh Turek (D) vs. Ashley Hinson (R)", "Incumbent": "GOP (Open)", "Rating": "Toss-up", "Dem Win %": 53.0},
         ])
         st.dataframe(
             battlegrounds,
