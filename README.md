@@ -10,7 +10,7 @@ A high-vibrancy, real-time analytics and tracking dashboard built with **Streaml
 ---
 
 ## 🌐 Live Web Application
-👉 **[Click here to view the Live 2026 U.S. Midterm Tracker](https://us-mid-terms-2026-btc8hyelz5t8xhqrv7fmzz.streamlit.app/)** *(You can also click the main title heading at the top of this page to visit the live app)*.
+👉 **[Click here to view the Live 2026 U.S. Midterm Tracker](https://us-mid-terms-2026-btc8hyelz5t8xhqrv7fmzz.streamlit.app/)** 
 
 ---
 
