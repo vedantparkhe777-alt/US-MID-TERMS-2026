@@ -34,17 +34,27 @@ def fetch_kalshi_market(ticker: str):
     return None
 
 @st.cache_data(ttl=60)
-def fetch_live_news():
-    """Fetches real-time US Midterm news via Google News RSS."""
-    rss_url = "https://news.google.com/rss/search?q=US+Midterm+Elections+2026+House+Senate&hl=en-US&gl=US&ceid=US:en"
+def fetch_live_midterm_news():
+    """Fetches strictly U.S. Midterm election-related news via Google News RSS with keyword filtering."""
+    rss_url = "https://news.google.com/rss/search?q=US+Midterm+Elections+2026+Senate+House+Congress&hl=en-US&gl=US&ceid=US:en"
     feed = feedparser.parse(rss_url)
     articles = []
-    for entry in feed.entries[:6]:
-        articles.append({
-            "title": entry.title,
-            "link": entry.link,
-            "published": entry.published
-        })
+    
+    # Keywords required to guarantee relevance to the midterms
+    required_keywords = ["midterm", "senate", "house", "congress", "election", "ballot", "poll"]
+    
+    for entry in feed.entries:
+        title_lower = entry.title.lower()
+        # Ensure the headline is strictly relevant to the midterms
+        if any(keyword in title_lower for keyword in required_keywords):
+            articles.append({
+                "title": entry.title,
+                "link": entry.link,
+                "published": entry.published
+            })
+        if len(articles) >= 6:  # Keep top 6 most relevant live updates
+            break
+            
     return articles
 
 @st.cache_data(ttl=120)
@@ -63,14 +73,9 @@ def fetch_network_video_feeds(channel_id: str):
 
 # --- HIGH-VIBRANCY SPLIT-SCREEN TINT ENGINE ---
 def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
-    """
-    Creates a high-vibrancy half-blue (left) and half-red (right) split background 
-    where color opacities scale aggressively with each party's live probability.
-    """
     avg_dem_prob = (house_dem_prob + senate_dem_prob) / 2.0
     avg_gop_prob = 100.0 - avg_dem_prob
     
-    # Amplified alpha mapping for a strong visual punch (up to 65% opacity max)
     dem_intensity = round(0.12 + (avg_dem_prob / 100.0 * 0.53), 2)
     gop_intensity = round(0.12 + (avg_gop_prob / 100.0 * 0.53), 2)
 
@@ -298,15 +303,15 @@ def render_live_data():
         )
 
     with right_col:
-        st.subheader("📰 Live Midterm Election Wire (Google News RSS)")
-        news_items = fetch_live_news()
+        st.subheader("📰 Live Midterm Election Wire (Strictly Midterms RSS)")
+        news_items = fetch_live_midterm_news()
         if news_items:
             for item in news_items:
                 with st.container(border=True):
                     st.markdown(f"**[{item['title']}]({item['link']})**")
                     st.caption(f"🕒 {item['published']}")
         else:
-            st.warning("Unable to reach live RSS feed at the moment.")
+            st.warning("Fetching live midterm election headlines...")
 
 render_live_data()
 
