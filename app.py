@@ -3,12 +3,14 @@ import requests
 import pandas as pd
 import plotly.express as px
 import feedparser
-from datetime import datetime
+
+SEAL_URL = "https://upload.wikimedia.org/wikipedia/commons/5/5c/Great_Seal_of_the_United_States_%28obverse%29.svg"
+FLAG_URL = "https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="2026 US Midterm Live Tracker",
-    page_icon="🗳️",
+    page_icon=SEAL_URL,
     layout="wide"
 )
 
@@ -37,13 +39,27 @@ def fetch_live_news():
     rss_url = "https://news.google.com/rss/search?q=US+Midterm+Elections+2026+House+Senate&hl=en-US&gl=US&ceid=US:en"
     feed = feedparser.parse(rss_url)
     articles = []
-    for entry in feed.entries[:8]:
+    for entry in feed.entries[:6]:
         articles.append({
             "title": entry.title,
             "link": entry.link,
             "published": entry.published
         })
     return articles
+
+@st.cache_data(ttl=120)
+def fetch_network_video_feeds(channel_id: str):
+    """Fetches the latest live stream and video broadcasts from a YouTube News Channel RSS feed."""
+    rss_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+    feed = feedparser.parse(rss_url)
+    videos = []
+    for entry in feed.entries[:4]:
+        videos.append({
+            "title": entry.title,
+            "link": entry.link,
+            "published": entry.published
+        })
+    return videos
 
 # --- HIGH-VIBRANCY SPLIT-SCREEN TINT ENGINE ---
 def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
@@ -54,7 +70,7 @@ def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner,
     avg_dem_prob = (house_dem_prob + senate_dem_prob) / 2.0
     avg_gop_prob = 100.0 - avg_dem_prob
     
-    # Amplified alpha mapping for a much stronger visual punch (up to 65% opacity max)
+    # Amplified alpha mapping for a strong visual punch (up to 65% opacity max)
     dem_intensity = round(0.12 + (avg_dem_prob / 100.0 * 0.53), 2)
     gop_intensity = round(0.12 + (avg_gop_prob / 100.0 * 0.53), 2)
 
@@ -70,6 +86,27 @@ def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner,
             ) !important;
             transition: background 0.8s ease-in-out;
             background-attachment: fixed;
+        }}
+        
+        .header-title-bar {{
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }}
+        
+        .header-seal-icon {{
+            height: 54px;
+            width: 54px;
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.25));
+        }}
+        
+        .header-title-text {{
+            font-size: 2.3rem;
+            font-weight: 800;
+            color: #1f242d;
+            margin: 0;
+            line-height: 1.2;
         }}
         
         @keyframes flash-banner {{
@@ -126,9 +163,6 @@ def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner,
         unsafe_allow_html=True
     )
 
-    flag_url = "https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
-    seal_url = "https://upload.wikimedia.org/wikipedia/commons/5/5c/Great_Seal_of_the_United_States_%28obverse%29.svg"
-
     banners_to_render = []
     if house_winner == "DEMOCRATS":
         banners_to_render.append(("DEMOCRATS HAVE WON THE HOUSE", "dem-victory", "PROJECTED MAJORITY — 218+ SEATS CONFIRMED"))
@@ -144,20 +178,31 @@ def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner,
         st.markdown(
             f"""
             <div class="victory-container {css_class}">
-                <img src="{flag_url}" class="emblem-img" alt="US Flag">
+                <img src="{FLAG_URL}" class="emblem-img" alt="US Flag">
                 <div>
                     <div class="flashing-winner-text">🇺🇸 {headline} 🇺🇸</div>
                     <div class="victory-subtext">{subtext}</div>
                 </div>
-                <img src="{seal_url}" class="emblem-img" alt="Great Seal of the United States">
+                <img src="{SEAL_URL}" class="emblem-img" alt="Great Seal of the United States">
             </div>
             """,
             unsafe_allow_html=True
         )
 
-# --- AUTO-REFRESHING DASHBOARD FRAGMENT ---
+# --- HEADER WITH OFFICIAL US GREAT SEAL ---
+st.markdown(
+    f"""
+    <div class="header-title-bar">
+        <img src="{SEAL_URL}" class="header-seal-icon" alt="Great Seal of the United States">
+        <h1 class="header-title-text">2026 U.S. Midterm Elections: Real-Time Dashboard</h1>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# --- SILENT 30-SECOND AUTO-REFRESHING DATA FRAGMENT ---
 @st.fragment(run_every="30s")
-def render_live_dashboard():
+def render_live_data():
     house_dem_data = fetch_kalshi_market("CONTROLH-2026-D")
     senate_dem_data = fetch_kalshi_market("CONTROLS-2026-D")
 
@@ -171,20 +216,6 @@ def render_live_dashboard():
     senate_winner = "DEMOCRATS" if senate_dem_prob >= 99.0 else ("REPUBLICANS" if senate_gop_prob >= 99.0 else None)
 
     apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner)
-
-    # --- HEADER ---
-    st.title("🗳️ 2026 U.S. Midterm Elections: Real-Time Dashboard")
-    
-    avg_dem = round((house_dem_prob + senate_dem_prob) / 2, 1)
-    last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    col_status, col_btn = st.columns([4, 1])
-    with col_status:
-        st.info(f"⚡ **Live API Feed Active** | High-Vibrancy Split Atmosphere (Blue: {avg_dem}% / Red: {round(100-avg_dem,1)}%) | Last synced: `{last_updated}`")
-    with col_btn:
-        if st.button("🔄 Force Refresh", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
 
     # --- TOP METRICS ROW ---
     st.subheader("📊 Live Balance of Power Odds & Polling Consensus")
@@ -277,4 +308,32 @@ def render_live_dashboard():
         else:
             st.warning("Unable to reach live RSS feed at the moment.")
 
-render_live_dashboard()
+render_live_data()
+
+st.divider()
+
+# --- LIVE VIDEO BROADCAST CENTER ---
+st.subheader("📺 Live Election Video Feeds & Network Broadcasts")
+
+NETWORK_CHANNELS = {
+    "ABC News": "UCBi2mrWuNuyYy4gbM6fU18Q",
+    "NBC News": "UCeY0bbntWzzVIaj2z3QigXg",
+    "CBS News": "UC8p1vwvWtl6T73JiExfWs1g",
+    "PBS NewsHour": "UC6ZFN9Tx6xh-skXCuRHCDpQ"
+}
+
+v_col1, v_col2 = st.columns(2)
+
+with v_col1:
+    selected_net_1 = st.selectbox("Primary Broadcast Feed:", list(NETWORK_CHANNELS.keys()), index=0)
+    feeds_1 = fetch_network_video_feeds(NETWORK_CHANNELS[selected_net_1])
+    if feeds_1:
+        st.video(feeds_1[0]["link"])
+        st.caption(f"🔴 **Now Playing ({selected_net_1}):** {feeds_1[0]['title']}")
+
+with v_col2:
+    selected_net_2 = st.selectbox("Secondary Broadcast Feed:", list(NETWORK_CHANNELS.keys()), index=1)
+    feeds_2 = fetch_network_video_feeds(NETWORK_CHANNELS[selected_net_2])
+    if feeds_2:
+        st.video(feeds_2[0]["link"])
+        st.caption(f"🔴 **Now Playing ({selected_net_2}):** {feeds_2[0]['title']}")
