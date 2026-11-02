@@ -45,40 +45,31 @@ def fetch_live_news():
         })
     return articles
 
-# --- STRONGER DYNAMIC BACKGROUND & VICTORY BANNER ENGINE ---
-def compute_tinted_background(dem_prob: float) -> str:
+# --- SPLIT-SCREEN INTENSITY TINT ENGINE ---
+def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
     """
-    Blends a warm base with a much stronger, highly visible Democratic Blue 
-    or Republican Red tint based on win probability.
+    Creates a half-blue (left) and half-red (right) split background 
+    where opacities/intensities scale dynamically with each party's probability.
     """
-    base_r, base_g, base_b = 250, 247, 240  # Warm Beige base
-    
-    if dem_prob >= 50:
-        intensity = (dem_prob - 50) / 50.0
-        # Target vibrant Dem Blue tint: RGB(145, 191, 249)
-        r = int(base_r - intensity * (base_r - 145))
-        g = int(base_g - intensity * (base_g - 191))
-        b = int(base_b - intensity * (base_b - 249))
-    else:
-        intensity = (50 - dem_prob) / 50.0
-        # Target vibrant GOP Red tint: RGB(252, 164, 164)
-        r = int(base_r - intensity * (base_r - 252))
-        g = int(base_g - intensity * (base_g - 164))
-        b = int(base_b - intensity * (base_b - 164))
-        
-    return f"#{r:02x}{g:02x}{b:02x}"
-
-def apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner):
-    """Injects dynamic CSS for strong background tinting and victory banners."""
     avg_dem_prob = (house_dem_prob + senate_dem_prob) / 2.0
-    bg_hex = compute_tinted_background(avg_dem_prob)
+    avg_gop_prob = 100.0 - avg_dem_prob
+    
+    # Calculate alpha/intensity values scaled from probability (0.0 to 1.0)
+    dem_intensity = round(0.05 + (avg_dem_prob / 100.0) * 0.35, 2)
+    gop_intensity = round(0.05 + (avg_gop_prob / 100.0) * 0.35, 2)
 
     st.markdown(
         f"""
         <style>
         .stApp {{
-            background: radial-gradient(circle at top, #FFFFFF 0%, {bg_hex} 100%) !important;
+            background: linear-gradient(135deg, 
+                rgba(31, 119, 180, {dem_intensity}) 0%, 
+                #FAF7F0 45%, 
+                #FAF7F0 55%, 
+                rgba(214, 39, 40, {gop_intensity}) 100%
+            ) !important;
             transition: background 0.8s ease-in-out;
+            background-attachment: fixed;
         }}
         
         @keyframes flash-banner {{
@@ -179,18 +170,17 @@ def render_live_dashboard():
     house_winner = "DEMOCRATS" if house_dem_prob >= 99.0 else ("REPUBLICANS" if house_gop_prob >= 99.0 else None)
     senate_winner = "DEMOCRATS" if senate_dem_prob >= 99.0 else ("REPUBLICANS" if senate_gop_prob >= 99.0 else None)
 
-    apply_dynamic_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner)
+    apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner, senate_winner)
 
     # --- HEADER ---
     st.title("🗳️ 2026 U.S. Midterm Elections: Real-Time Dashboard")
     
     avg_dem = round((house_dem_prob + senate_dem_prob) / 2, 1)
-    tint_label = f"Strong Blue Tint ({avg_dem}% Dem Tilt)" if avg_dem > 50 else (f"Strong Red Tint ({round(100-avg_dem, 1)}% GOP Tilt)" if avg_dem < 50 else "Neutral Beige")
-    
     last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     col_status, col_btn = st.columns([4, 1])
     with col_status:
-        st.info(f"⚡ **Live API Feed Active** | Page Atmosphere: **{tint_label}** | Last synced: `{last_updated}`")
+        st.info(f"⚡ **Live API Feed Active** | Split Tint Atmosphere (Blue: {avg_dem}% / Red: {round(100-avg_dem,1)}%) | Last synced: `{last_updated}`")
     with col_btn:
         if st.button("🔄 Force Refresh", use_container_width=True):
             st.cache_data.clear()
@@ -253,6 +243,7 @@ def render_live_dashboard():
         st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("🎯 Key 2026 Senate Battleground Watchlist")
+    
         battlegrounds = pd.DataFrame([
             {"State": "Ohio (Special)", "Matchup": "Sherrod Brown (D) vs. Jon Husted (R)", "Incumbent": "GOP", "Rating": "Toss-up", "Dem Win %": 63.5},
             {"State": "Maine", "Matchup": "Troy Jackson (D) vs. Susan Collins (R)", "Incumbent": "GOP", "Rating": "Lean D", "Dem Win %": 73.0},
