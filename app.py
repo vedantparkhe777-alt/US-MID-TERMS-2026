@@ -101,8 +101,8 @@ def apply_split_theme_and_banners(house_dem_prob, senate_dem_prob, house_winner,
         }}
         
         .header-seal-icon {{
-            height: 58px;
-            width: 58px;
+            height: 75px;
+            width: 75px;
             filter: drop-shadow(0 2px 5px rgba(0,0,0,0.25));
         }}
         
@@ -206,7 +206,7 @@ st.markdown(
 )
 
 # --- SILENT 30-SECOND AUTO-REFRESHING DATA FRAGMENT ---
-@st.fragment(run_every="30s")
+@st.fragment(run_every="10s")
 def render_live_data():
     house_dem_data = fetch_kalshi_market("CONTROLH-2026-D")
     senate_dem_data = fetch_kalshi_market("CONTROLS-2026-D")
